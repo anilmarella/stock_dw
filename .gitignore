@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# project
+data/*
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+transformation/target/
+transformation/logs/
+transformation/dbt_packages/

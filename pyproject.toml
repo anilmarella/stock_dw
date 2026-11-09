@@ -1,0 +1,12 @@
+[project]
+name = "stock-dw"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "dbt>=2.0",
+    "duckdb",
+    "pyarrow",
+    "python-dotenv",
+    "requests",
+    "typer",
+]

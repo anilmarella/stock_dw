@@ -1,0 +1,11 @@
+stock_dw:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../data/dev_warehouse.duckdb
+      threads: 1
+    prod:
+      type: duckdb
+      path: ../data/warehouse.duckdb
+      threads: 4

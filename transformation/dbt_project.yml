@@ -1,0 +1,8 @@
+name: stock_dw
+version: "0.1.0"
+profile: stock_dw
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
