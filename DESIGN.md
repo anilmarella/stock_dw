@@ -16,7 +16,7 @@ Descriptive analytics only. Runs locally. Free data and tools.
 ## Identity
 - `ingestion/tickers.txt` is the only hand-edited list.
 - Ingestion fetches each new ticker's CIK from SEC (`company_tickers.json`).
-- dbt builds `dim_security`: surrogate `security_key`, `ticker`, `cik`, `name`. CIK joins prices to fundamentals.
+- dbt builds `fnd_security` / `mart_security`: `security_key`, `ticker`, `cik`, `name`. CIK joins prices to fundamentals.
 
 ## Layers
 1. `ingestion/`: Python pulls → Parquet in `data/raw/source=<src>/dataset=<ds>/ingest_date=<date>/<name>_<HHMMSS UTC>.parquet`
@@ -27,13 +27,21 @@ Descriptive analytics only. Runs locally. Free data and tools.
 
 `data/` is gitignored. One `pyproject.toml` (uv, Python 3.12).
 
-## Adjusted prices
-Computed from raw prices + split/dividend events known as of the query date. Never written over raw prices.
+## dbt layers
+- **staging** (views): 1:1 with raw. Renames, casts types, light filters.
+- **foundation** (tables): one table per concept, versioned with `known_as_of` / `known_until`. `fnd_security`, `fnd_price_daily`, `fnd_corporate_action`, `fnd_fundamental`.
+- **marts** (tables): what serving reads. `mart_security`, `mart_daily_price`, `mart_eps_annual`, `mart_daily_features`.
 
-## Features
-- YAML config using a few templates (return, volatility, drawdown, ratio) plus custom SQL.
-- Versioned by name + version.
-- One dbt test checks that no feature uses data from the future.
+## Adjusted prices
+Never stored. `mart_daily_price.split_index` is the running product of split factors. Split-adjusted close for day d as seen on date A = `close_d * split_index_d / split_index_A`. Using A = today reproduces what a naive dataset shows.
+
+## Features (`mart_daily_features`)
+- **Price:** `ret_1d/21d/63d/252d` (total return), `mom_12_1`, `vol_21d/63d` (annualised), `beta_252d` vs SPY, `drawdown_252d`, `avg_dollar_volume_21d`.
+- **Fundamental:** `eps_fy`, `pe_ratio`, `earnings_yield`, `shares_outstanding`, `market_cap`.
+- **Naive twins for the demo:** `eps_fy_naive`, `pe_ratio_naive`.
+- All built from daily returns that only use that day's split/dividend, so they're point-in-time by construction.
+- `tests/assert_features_no_lookahead.sql` fails if any row uses a filing made after its date.
+- Hand-written SQL for now. The YAML feature config is still open.
 
 ## AI layer
 Local MCP server. Read-only DuckDB connection. Every tool takes `as_of`.
@@ -55,15 +63,25 @@ Local MCP server. Read-only DuckDB connection. Every tool takes `as_of`.
 - **Fundamentals:** repeated facts collapse to the first one ingested. SEC filings never change, and a correction comes as a new filing (10-K/A).
 - **Restructured companies:** GOOGL (2015), DIS (2019) and XOM (2026, new parent ExxonMobil Holdings Corp, CIK 2115436; old CIK 34088) got new CIKs. Fundamentals before that sit under the old CIK and aren't fetched. XOM is the worst case, with only filings since Aug 2026. The fix, if needed, is a small hand-made `predecessor_ciks.csv`.
 
+- **Marts use the latest price version.** Price corrections are rare, so features use the current version of history. Foundation still keeps every version for as-of queries.
+- **Annual EPS, not trailing-12-month.** P/E uses the latest 10-K's diluted EPS. TTM needs quarter math (Q4 = FY minus 9 months), which is left for later.
+- **Share basis.** EPS and share counts are filed on the share basis of their filing date. Both are moved onto each day's basis with `split_index` (EPS ÷ splits since filing, shares × splits since filing).
+- **Naive P/E** = final restated EPS for the latest fiscal year ended, available from year end (no filing delay).
+- **Split/dividend known on the ex-date.** Tiingo has no announcement date.
+- **Rolling features need a full window**, e.g. `vol_63d` is null for the first 63 days.
+
 ## Known gaps
 - **Survivorship bias:** the list is today's big companies. Showing the bias would need delisted stocks, which free sources don't cover well.
 - **Real price corrections** are rare, so a demo of one would have to be staged.
+- **Multi-class companies:** V has no plain diluted EPS (it reports per class), so no P/E. GOOGL and META have no single cover-page share count, so no market cap. MA's share counts are sparse.
+- **XOM fundamentals** only start in Aug 2026 (new CIK, see above).
 
 ## Demo highlights
 Questions where naive data gives the wrong answer:
 - **Splits:** NVDA (2021, 2024), AAPL (2014, 2020), TSLA, AMZN, GOOGL, AVGO, WMT. Adjusted prices in naive data show values nobody saw at the time.
 - **EPS restated after a split:** NVDA's fiscal-2021 diluted EPS was first filed as 6.90 (2021-02-26) and later as 1.73 (2022-03-18). This changes the P/E.
-- **Filing delay:** annual reports come out 1–2 months after the year ends, so naive P/E uses earnings before they were public.
+- **Filing delay:** annual reports come out 1–2 months after the year ends, so naive P/E uses earnings before they were public. NVDA on 2021-02-01: point-in-time P/E 117 (FY2020 EPS 4.52, the latest filed) vs naive 76.5 (FY2021 EPS 6.92, not filed until 2021-02-26).
+- **Split basis:** on 2021-08-02, after NVDA's 4:1 split, the stale EPS of 6.90 becomes 1.725 on the new basis. P/E stays continuous (about 114) instead of jumping 4×.
 - **Different fiscal years:** NVDA's ends in January, AAPL's in September, MSFT's in June.
 - **Dividends:** price return vs total return.
 

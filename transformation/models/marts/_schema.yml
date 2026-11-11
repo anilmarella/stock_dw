@@ -1,3 +1,99 @@
 version: 2
 
-models: []
+models:
+  - name: mart_security
+    description: One row per security with the latest ticker and the price date range.
+    columns:
+      - name: security_key
+        data_tests: [unique, not_null]
+      - name: ticker
+      - name: cik
+      - name: name
+      - name: data_available_from
+      - name: data_available_to
+
+  - name: mart_daily_price
+    description: >
+      Latest-known unadjusted prices with daily returns and running indexes.
+      Split-adjusted close as seen on date A = close * split_index / split_index on A.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: ticker
+      - name: about_date
+      - name: open
+      - name: high
+      - name: low
+      - name: close
+        description: Unadjusted close, the price people actually saw.
+      - name: volume
+      - name: dividend_cash
+      - name: split_factor
+      - name: price_return
+        description: Daily return, split-aware, without dividends.
+      - name: total_return
+        description: Daily return including dividends.
+      - name: split_index
+        description: Running product of split factors up to this day.
+      - name: tr_index
+        description: Running total-return index (starts at 1).
+
+  - name: mart_eps_annual
+    description: Annual diluted EPS from every 10-K, including restated values for earlier years.
+    columns:
+      - name: security_key
+      - name: period_start
+      - name: period_end
+        description: Fiscal year end.
+      - name: eps
+        description: As filed, on the share basis at the filing date.
+      - name: form
+      - name: accession_no
+      - name: filed_date
+      - name: split_index_at_filed
+        description: split_index on the filing date, used to move EPS onto a later share basis.
+
+  - name: mart_daily_features
+    description: >
+      One row per security per trading day. Every feature uses only data known on that day.
+      Columns ending in _naive show what a look-ahead dataset would report, for comparison.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: ticker
+      - name: about_date
+      - name: close
+      - name: ret_1d
+      - name: ret_21d
+        description: 1-month total return.
+      - name: ret_63d
+        description: 3-month total return.
+      - name: ret_252d
+        description: 12-month total return.
+      - name: mom_12_1
+        description: 12-month return skipping the latest month (classic momentum).
+      - name: vol_21d
+        description: Annualised volatility of daily returns, 1 month.
+      - name: vol_63d
+        description: Annualised volatility of daily returns, 3 months.
+      - name: beta_252d
+        description: 1-year beta vs SPY.
+      - name: drawdown_252d
+        description: Drop from the 1-year high of the total-return index.
+      - name: avg_dollar_volume_21d
+        description: Liquidity, average close * volume over 1 month.
+      - name: eps_fy
+        description: Latest annual diluted EPS filed by this day, on today's share basis.
+      - name: eps_period_end
+      - name: eps_filed_date
+      - name: eps_fy_naive
+        description: Final restated EPS for the latest fiscal year ended, ignoring filing delay.
+      - name: shares_outstanding
+        description: Latest cover-page share count filed by this day, on today's share basis.
+      - name: shares_filed_date
+      - name: pe_ratio
+        description: close / eps_fy. Null when EPS <= 0.
+      - name: pe_ratio_naive
+      - name: earnings_yield
+        description: eps_fy / close. Works for negative EPS too.
+      - name: market_cap

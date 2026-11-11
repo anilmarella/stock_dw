@@ -7,6 +7,6 @@ TARGET="${TARGET:-dev}"
 echo "==> ingest"
 uv run python ingestion/ingest.py
 
-echo "==> dbt staging (target: $TARGET)"
+echo "==> dbt build (target: $TARGET)"
 cd transformation
-uv run dbt build --select staging foundation --target "$TARGET" --threads 4
+uv run dbt build --select staging foundation marts --target "$TARGET" --threads 4
