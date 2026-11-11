@@ -1,0 +1,78 @@
+version: 2
+
+models:
+  - name: fnd_security
+    description: One row per security, keyed by md5(CIK). Shows the latest ticker.
+    columns:
+      - name: security_key
+        data_tests: [unique, not_null]
+      - name: cik
+      - name: ticker
+      - name: name
+
+  - name: fnd_price_daily
+    description: >
+      Unadjusted daily prices, versioned. A new version appears only when values change
+      between ingests. As of date D, use rows with known_as_of <= D and (known_until IS NULL OR known_until > D).
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: about_date
+        data_tests: [not_null]
+      - name: open
+      - name: high
+      - name: low
+      - name: close
+      - name: volume
+      - name: dividend_cash
+      - name: split_factor
+      - name: version_no
+        description: 1 = first seen. Higher = later correction.
+      - name: known_as_of
+        description: Trading day for version 1, ingest date for corrections.
+        data_tests: [not_null]
+      - name: known_until
+        description: known_as_of of the next version. Null = still current.
+      - name: ingested_at
+
+  - name: fnd_corporate_action
+    description: Splits and dividends from the price feed, as dated events. Versioned like fnd_price_daily.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: event_date
+        description: Ex-date.
+      - name: action_type
+        description: split or dividend.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['split', 'dividend']
+      - name: action_value
+        description: Split ratio, or cash per share.
+      - name: known_as_of
+      - name: known_until
+
+  - name: fnd_fundamental
+    description: SEC XBRL facts, one row per fact per filing. All concepts kept.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: cik
+      - name: taxonomy
+      - name: concept
+      - name: unit
+      - name: period_start
+      - name: period_end
+      - name: about_date
+      - name: fact_value
+      - name: accession_no
+      - name: fiscal_year
+      - name: fiscal_period
+      - name: form
+      - name: filed_date
+      - name: known_as_of
+        description: Filing date. When the fact became public.
+        data_tests: [not_null]
+      - name: frame
+      - name: ingested_at

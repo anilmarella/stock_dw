@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: stg_tiingo__prices
+    description: Raw daily prices from Tiingo, one row per ticker, day and ingest run. Unadjusted.
+    columns:
+      - name: ticker
+        data_tests: [not_null]
+      - name: about_date
+        description: Trading day the prices describe.
+        data_tests: [not_null]
+      - name: open
+      - name: high
+      - name: low
+      - name: close
+        description: Unadjusted close.
+      - name: volume
+      - name: dividend_cash
+        description: Cash dividend per share with ex-date on this day, else 0.
+      - name: split_factor
+        description: Split ratio effective this day, else 1.
+      - name: ingested_at
+        description: When our pipeline fetched the row (UTC).
+      - name: ingest_date
+        description: Partition folder date of the raw file.
+
+  - name: stg_sec__companyfacts
+    description: XBRL facts from SEC companyfacts, 10-K / 10-Q filings and amendments only. One row per fact per filing.
+    columns:
+      - name: cik
+        data_tests: [not_null]
+      - name: ticker
+      - name: taxonomy
+        description: us-gaap or dei.
+      - name: concept
+        description: XBRL concept, e.g. EarningsPerShareDiluted.
+        data_tests: [not_null]
+      - name: unit
+        description: USD, shares, USD/shares, etc.
+      - name: period_start
+        description: Null for point-in-time facts like shares outstanding.
+      - name: period_end
+      - name: about_date
+        description: Same as period_end.
+      - name: fact_value
+      - name: accession_no
+        description: SEC filing id.
+      - name: fiscal_year
+      - name: fiscal_period
+        description: FY, Q1, Q2, Q3.
+      - name: form
+      - name: filed_date
+      - name: known_as_of
+        description: Same as filed_date. When the fact became public.
+        data_tests: [not_null]
+      - name: frame
+      - name: ingested_at
+      - name: ingest_date
+
+  - name: stg_sec__company_tickers
+    description: Ticker to CIK mapping, fetched once per new ticker.
+    columns:
+      - name: ticker
+        data_tests: [not_null]
+      - name: cik
+        data_tests: [not_null]
+      - name: name
+      - name: ingested_at
+      - name: ingest_date

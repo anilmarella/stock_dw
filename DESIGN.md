@@ -39,14 +39,21 @@ Computed from raw prices + split/dividend events known as of the query date. Nev
 Local MCP server. Read-only DuckDB connection. Every tool takes `as_of`.
 
 ## Decisions and compromises
-- **Surrogate `security_key`, not FIGI.** None of our sources use FIGI, so it would only be a label. CIK is stored as an attribute, but it can't be the key because one company can have several share classes (GOOG/GOOGL).
-- **No ticker history.** FB → META is the only case in our set. Tiingo files all history under META, and EDGAR uses the CIK, which didn't change. Only typing "FB" fails.
+- **`security_key` = md5(CIK).** Not FIGI (no source uses it). CIK survives ticker renames. It breaks if a second share class (GOOG + GOOGL) is added, so a `unique` test on `security_key` guards against that.
+- **Ticker renames:** edit `tickers.txt` (FB → META). The new ticker resolves to the same CIK, so it gets the same `security_key`. Prices from both tickers merge into one history, and `fnd_security` shows the latest ticker.
 - **SPY is prices only.** It's a fund with no company financials (companyfacts returns 404), so it's used purely as a benchmark.
-- **Incremental prices.** New tickers backfill from 2010. Existing tickers re-pull the last 7 days to catch late corrections, and dbt removes the overlap.
-- **Fundamentals are a full re-pull.** SEC only serves the whole file per company. dbt keeps one row per fact and filing, so repeats cost nothing.
+- **Incremental prices, completed days only.** New tickers backfill from 2010. Existing tickers re-pull the last 7 days to catch late corrections. The end date is the last completed day: today only after 6 pm ET, else yesterday, so partial bars never land. Weekends and holidays just return no rows. A ticker is skipped if it was already fetched up to that end date (`data/ingest_state.json`).
+- **Fundamentals: once a day, new filings only.** SEC only serves the whole file per company, so each company is fetched at most once a day, and only facts from filings not already in raw are written. Raw grows by new filings, not full copies.
+- **Retries and exit code.** HTTP 429/5xx retry with backoff. Ingestion exits non-zero if any ticker fails, so CI shows red.
 - **Raw files carry a time suffix**, so same-day runs never overwrite each other.
 - **Skipped GOOG and BRK-B.** GOOG would duplicate GOOGL. BRK-B reports EPS per Class A share, which would need a conversion.
-- **Restructured companies:** GOOGL (2015) and DIS (2019) got new CIKs. Fundamentals before that sit under the old CIK and aren't fetched. The fix, if needed, is a small hand-made `predecessor_ciks.csv`.
+- **Staging is views, 1:1 with raw.** It renames, casts types and filters to 10-K/10-Q filings (plus amendments). No joins.
+- **Tiingo's adjusted columns are dropped.** They're adjusted as of today, which is look-ahead. We compute our own.
+- **Price `known_as_of` is set in foundation.** First seen = the trading day; a later changed value = the day we saw it.
+- **Price versions:** a hash of the values is compared between ingests, and a new version appears only when it changes (a revert also counts as a change). `known_until` = the next version's `known_as_of`, so an as-of query is a simple range check.
+- **Prices need a CIK.** They join to their security through the CIK lookup, so a ticker missing from SEC's list is dropped from foundation.
+- **Fundamentals:** repeated facts collapse to the first one ingested. SEC filings never change, and a correction comes as a new filing (10-K/A).
+- **Restructured companies:** GOOGL (2015), DIS (2019) and XOM (2026, new parent ExxonMobil Holdings Corp, CIK 2115436; old CIK 34088) got new CIKs. Fundamentals before that sit under the old CIK and aren't fetched. XOM is the worst case, with only filings since Aug 2026. The fix, if needed, is a small hand-made `predecessor_ciks.csv`.
 
 ## Known gaps
 - **Survivorship bias:** the list is today's big companies. Showing the bias would need delisted stocks, which free sources don't cover well.

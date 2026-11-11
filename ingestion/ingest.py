@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,8 @@ if __name__ == "__main__":
     load_dotenv(ROOT / ".env")
     tickers = load_tickers()
     log.info("%d tickers in registry", len(tickers))
-    ingest_ciks(tickers)
-    ingest_prices(tickers)
-    ingest_fundamentals(tickers)
+    failures = ingest_ciks(tickers) + ingest_prices(tickers) + ingest_fundamentals(tickers)
+    if failures:
+        log.error("finished with %d failures", failures)
+        sys.exit(1)
+    log.info("done")

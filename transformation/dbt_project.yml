@@ -6,3 +6,18 @@ model-paths: ["models"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
+
+vars:
+  raw_path: "../data/raw"
+
+models:
+  stock_dw:
+    staging:
+      +materialized: view
+      +schema: staging
+    foundation:
+      +materialized: table
+      +schema: foundation
+    marts:
+      +materialized: table
+      +schema: marts

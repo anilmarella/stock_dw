@@ -10,3 +10,8 @@ dependencies = [
     "requests",
     "typer",
 ]
+
+[dependency-groups]
+dev = [
+    "sqlfluff>=4.5.0",
+]
