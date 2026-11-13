@@ -5,6 +5,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "dbt>=2.0",
     "duckdb",
+    "mcp>=2.3.0",
     "pyarrow",
     "python-dotenv",
     "requests",

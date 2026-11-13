@@ -67,8 +67,15 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
   - a YAML registry
   - auto-bumped versions: text and compiled-SQL hashes change on non-logic edits
 
-## AI layer
-Local MCP server. Read-only DuckDB connection. Every tool takes `as_of`.
+## AI layer (`serving/mcp_server.py`)
+- Local MCP server (official `mcp` Python package). Reads marts only, read-only, opening the DuckDB file per call so `dbt build` can still write.
+- Every tool requires `as_of`, so the AI can't look ahead:
+  - `list_securities(as_of)`
+  - `get_prices(ticker, start, end, as_of)`: `adj_close` is split-adjusted as seen on `as_of`
+  - `get_factors(tickers, start, end, as_of, factors?, computed_by?)`: via `factor_values_as_of`
+  - `compare_as_of(ticker, factor, about_date, as_of)`: every version of one value, and when each became known
+- No raw-SQL tool: it would let the AI skip `as_of`.
+- Results are capped at 5000 rows.
 
 ## Decisions and compromises
 - **`security_key` = md5(CIK).** Not FIGI (no source uses it). CIK survives ticker renames. It breaks if a second share class (GOOG + GOOGL) is added, so a `unique` test on `security_key` guards against that.
@@ -98,6 +105,7 @@ Local MCP server. Read-only DuckDB connection. Every tool takes `as_of`.
 - **Survivorship bias:** the list is today's big companies. Showing the bias would need delisted stocks, which free sources don't cover well.
 - **Real price corrections** are rare, so a demo of one would have to be staged.
 - **Multi-class companies:** V has no plain diluted EPS (it reports per class), so no P/E. GOOGL and META have no single cover-page share count, so no market cap. MA's share counts are sparse.
+- **`get_prices` and price corrections:** `mart_daily_price` holds only the latest price version, so for an `as_of` before a correction, that day is missing instead of showing the old value.
 - **XOM fundamentals** only start in Aug 2026 (new CIK, see above).
 
 ## Demo highlights
