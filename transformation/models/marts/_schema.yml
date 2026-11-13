@@ -29,6 +29,8 @@ models:
       - name: volume
       - name: dividend_cash
       - name: split_factor
+      - name: known_as_of
+        description: When this price version became known.
       - name: price_return
         description: Daily return, split-aware, without dividends.
       - name: total_return
@@ -53,16 +55,37 @@ models:
       - name: split_index_at_filed
         description: split_index on the filing date, used to move EPS onto a later share basis.
 
-  - name: mart_daily_features
+  - name: mart_factor_value
     description: >
-      One row per security per trading day. Every feature uses only data known on that day.
-      Columns ending in _naive show what a look-ahead dataset would report, for comparison.
+      The factor library. Append-only, one row per security, day, factor, formula version and
+      knowledge date. A new row only when a value changes. Never rebuilt (full_refresh disabled).
+      Query any as-of date with marts.factor_values_as_of(as_of [, computed_by := ts]).
     columns:
       - name: security_key
         data_tests: [not_null]
-      - name: ticker
       - name: about_date
-      - name: close
+        data_tests: [not_null]
+      - name: factor
+        description: Factor name, e.g. pe_ratio, vol_21d.
+        data_tests: [not_null]
+      - name: factor_version
+        description: Formula version. Bumped in the PR that changes the formula; old versions stay.
+      - name: value
+      - name: known_as_of
+        description: When the inputs behind this value were public.
+        data_tests: [not_null]
+      - name: computed_at
+        description: When our pipeline produced this row.
+        data_tests: [not_null]
+
+  - name: mart_factors_daily
+    description: >
+      One row per security per day, one column per factor (latest formula version),
+      as known on that day. What ML training and backtests read.
+    columns:
+      - name: security_key
+      - name: about_date
+      - name: ticker
       - name: ret_1d
       - name: ret_21d
         description: 1-month total return.
@@ -83,17 +106,11 @@ models:
       - name: avg_dollar_volume_21d
         description: Liquidity, average close * volume over 1 month.
       - name: eps_fy
-        description: Latest annual diluted EPS filed by this day, on today's share basis.
-      - name: eps_period_end
-      - name: eps_filed_date
-      - name: eps_fy_naive
-        description: Final restated EPS for the latest fiscal year ended, ignoring filing delay.
-      - name: shares_outstanding
-        description: Latest cover-page share count filed by this day, on today's share basis.
-      - name: shares_filed_date
+        description: Latest annual diluted EPS filed by this day, on this day's share basis.
       - name: pe_ratio
         description: close / eps_fy. Null when EPS <= 0.
-      - name: pe_ratio_naive
       - name: earnings_yield
-        description: eps_fy / close. Works for negative EPS too.
+        description: eps_fy / close.
+      - name: shares_outstanding
+        description: Latest cover-page share count filed by this day, on this day's share basis.
       - name: market_cap

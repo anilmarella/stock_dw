@@ -5,7 +5,8 @@ SELECT
     'split' AS action_type,
     split_factor AS action_value,
     known_as_of,
-    known_until
+    known_until,
+    ingested_at
 FROM {{ ref('fnd_price_daily') }}
 WHERE split_factor != 1
 
@@ -17,6 +18,7 @@ SELECT
     'dividend' AS action_type,
     dividend_cash AS action_value,
     known_as_of,
-    known_until
+    known_until,
+    ingested_at
 FROM {{ ref('fnd_price_daily') }}
 WHERE dividend_cash != 0

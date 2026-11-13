@@ -12,6 +12,7 @@ WITH px AS (
         prc.volume,
         prc.dividend_cash,
         prc.split_factor,
+        prc.known_as_of,
         LAG(prc.close) OVER (PARTITION BY prc.security_key ORDER BY prc.about_date) AS prev_close
     FROM {{ ref('fnd_price_daily') }} AS prc
     INNER JOIN {{ ref('fnd_security') }} AS sec ON prc.security_key = sec.security_key
@@ -37,6 +38,7 @@ SELECT
     volume,
     dividend_cash,
     split_factor,
+    known_as_of,
     price_return,
     total_return,
     PRODUCT(split_factor) OVER w AS split_index,
