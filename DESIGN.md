@@ -30,7 +30,7 @@ Descriptive analytics only. Runs locally. Free data and tools.
 ## dbt layers
 - **staging** (views): 1:1 with raw. Renames, casts types, light filters.
 - **foundation** (tables): shared source facts, versioned with `known_as_of` / `known_until` plus `ingested_at`. `fnd_security`, `fnd_price_daily`, `fnd_corporate_action`, `fnd_fundamental`.
-- **marts**: what people and serving read. `mart_security`, `mart_daily_price`, `mart_eps_annual`, the factor library `mart_factor_value`, and its wide read view `mart_factors_daily`.
+- **marts**: what people and serving read. `mart_security`, `mart_daily_price`, `mart_eps_annual`, `mart_eps_quarterly`, the factor library `mart_factor_value`, and its wide read view `mart_factors_daily`.
 
 ## Adjusted prices
 Never stored. `mart_daily_price.split_index` is the running product of split factors. Split-adjusted close for day d as seen on date A = `close_d * split_index_d / split_index_A`. Using A = today reproduces what a naive dataset shows.
@@ -95,7 +95,11 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
 - **Restructured companies:** GOOGL (2015), DIS (2019) and XOM (2026, new parent ExxonMobil Holdings Corp, CIK 2115436; old CIK 34088) got new CIKs. Fundamentals before that sit under the old CIK and aren't fetched. XOM is the worst case, with only filings since Aug 2026. The fix, if needed, is a small hand-made `predecessor_ciks.csv`.
 
 - **Fresh builds only know the corrected price.** A price corrected before the first build gives factors only the corrected value (known from the correction date). Live append-only runs record both.
-- **Annual EPS, not trailing-12-month.** P/E uses the latest 10-K's diluted EPS. TTM needs quarter math (Q4 = FY minus 9 months), which is left for later.
+- **Annual EPS, not trailing-12-month.** P/E still uses the latest 10-K's diluted EPS. `mart_eps_quarterly` is built for TTM but not wired into P/E yet.
+- **Quarterly EPS (`mart_eps_quarterly`).** A quarter is keyed by `period_end`; `fiscal_year`/`fiscal_period` describe the filing, not the number, so they're ignored.
+  - Each 10-Q also repeats last year's quarter for comparison. The same value (up to cent rounding, after splits) is not a new version. A different value is a restatement and gets a row, known from that filing date (e.g. JPM Q1 2012, London Whale, 1.31 → 1.19 by 10-Q/A; MSFT and BA 2017 after the new revenue rules).
+  - Q4 is often not filed on its own, so Q4 = full year − 9 months, only from that year's own 10-K and only if Q4 wasn't filed. A 10-K/A or a later comparison column can restate the year while the 9-month value is still old (AAPL's Jan 2010 10-K/A gave a bogus 4.61).
+  - EPS doesn't add up exactly across quarters (share counts change), so a derived Q4 can be a few cents off.
 - **Share basis.** EPS and share counts are filed on the share basis of their filing date. Both are moved onto each day's basis with `split_index` (EPS ÷ splits since filing, shares × splits since filing).
 - **"Naive" = as known today.** `factor_values_as_of(today)` gives what a look-ahead dataset shows (final restated values, no filing delay), so no separate naive columns.
 - **Split/dividend known on the ex-date.** Tiingo has no announcement date.
@@ -106,6 +110,9 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
 - **Real price corrections** are rare, so a demo of one would have to be staged.
 - **Multi-class companies:** V has no plain diluted EPS (it reports per class), so no P/E. GOOGL and META have no single cover-page share count, so no market cap. MA's share counts are sparse.
 - **`get_prices` and price corrections:** `mart_daily_price` holds only the latest price version, so for an `as_of` before a correction, that day is missing instead of showing the old value.
+- **PFE's Viatris spin-off (2020-11-17)** comes from Tiingo as a 1.054 split. That's right for adjusted prices, but EPS and share counts get moved by it as if shares changed.
+- **Tagging errors in SEC data are kept as filed.** AMZN's 2012 10-K swaps 2011 and 2012 quarterly EPS; the next filing fixes it. A point-in-time view should show what the feed said.
+- **Gaps in quarterly EPS:** TSLA 2012–2016 and GOOGL 2015 (Alphabet change) are missing quarters.
 - **XOM fundamentals** only start in Aug 2026 (new CIK, see above).
 
 ## Demo highlights
