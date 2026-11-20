@@ -23,7 +23,6 @@ Descriptive analytics only. Runs locally. Free data and tools.
    - `ingest.py` (entry), `common.py`, `sec.py` (CIKs + fundamentals), `tiingo.py` (prices). One file per source, an exception to the few-files rule.
 2. `transformation/`: dbt v2 (Rust engine, built-in DuckDB adapter) → `data/warehouse.duckdb`
 3. `serving/`: MCP server, dashboards. Read-only.
-4. `cli.py`: `stockdw` command (add-ticker, ingest, build, add-factor). Calls the layers; no logic of its own.
 
 `data/` is gitignored. One `pyproject.toml` (uv, Python 3.12).
 

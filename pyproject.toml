@@ -9,7 +9,6 @@ dependencies = [
     "pyarrow",
     "python-dotenv",
     "requests",
-    "typer",
 ]
 
 [dependency-groups]
