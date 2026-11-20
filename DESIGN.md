@@ -50,17 +50,18 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
 - **`factor_version`:** bumped in the PR that changes a formula. Old versions' rows stay. Readers get the latest version unless they pin one.
 - **Factors (v1):**
   - Price: `ret_1d/21d/63d/252d` (total return), `mom_12_1`, `vol_21d/63d` (annualised), `beta_252d` vs SPY, `drawdown_252d`, `avg_dollar_volume_21d`.
-  - Fundamental: `eps_fy`, `pe_ratio`, `earnings_yield`, `shares_outstanding`, `market_cap`.
+  - Fundamental: `eps_fy`, `eps_ttm`, `pe_ratio`, `earnings_yield`, `shares_outstanding`, `market_cap`.
+  - `pe_ratio` / `earnings_yield` v1 use the last fiscal year's EPS; v2 use TTM EPS (last 4 quarters).
 - **How `known_as_of` is set:**
   - **Price factors:** the latest `known_as_of` among the prices in that factor's window. A correction only re-dates the factors whose window it touches. Splits never change them, because they're built from daily returns.
-  - **Fundamental factors:** for day d as known at K, the latest fiscal year ended before d, from filings made by K. K is d itself plus every filing in the 3 years after d, so late 10-Ks and restated comparatives create new rows for past days.
+  - **Fundamental factors:** for day d as known at K, the latest fiscal year ended before d, from filings made by K. TTM sums the latest 4 quarters ended before d (each at its latest version filed by K), and only if they are consecutive. K is d itself plus every filing in the 3 years after d, so late 10-Ks and restated comparatives create new rows for past days.
 - **Code:**
   - Each family is a macro of readable CTEs: `macros/price_factors.sql`, `macros/fundamental_factors.sql`.
   - Adding a factor is one line in the family's `VALUES` list.
 - **Reading it:**
-  - `mart_factors_daily`: wide, as known on each row's own day, for ML and backtests. Built by the `factors_wide(factors, versions)` macro.
+  - `mart_factors_daily`: wide, as known on each row's own day, for ML and backtests. Built by the `factors_wide(factors, versions)` macro. `pe_ratio` and `earnings_yield` are pinned to v2, so a day without TTM is empty instead of silently falling back to v1.
   - `marts.factor_values_as_of(as_of [, computed_by := ts])`: DuckDB table macro for any as-of date, created after each build.
-- **Incremental:** a run recomputes from the last `known_as_of` minus 10 days (prices read 400 days back for windows; fundamentals 3 years back for late filings) and compares with stored rows. A rerun with no new data appends nothing. Window sums over shorter inputs differ in the last bits, so the comparison uses a 1e-9 relative tolerance.
+- **Incremental:** a run recomputes from the last `known_as_of` minus 10 days (prices read 400 days back for windows; fundamentals 3 years back for late filings) and compares with stored rows. A rerun with no new data appends nothing. A new factor or version is backfilled once with `--vars '{factor_since: "1900-01-01"}'`; unchanged rows aren't re-appended. Window sums over shorter inputs differ in the last bits, so the comparison uses a 1e-9 relative tolerance.
 - **Tests:** `tests/assert_factors_no_lookahead.sql` fails if any value is known before its day.
 - **Rejected:**
   - wide tables per family: append-only would repeat unchanged columns
@@ -95,7 +96,7 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
 - **Restructured companies:** GOOGL (2015), DIS (2019) and XOM (2026, new parent ExxonMobil Holdings Corp, CIK 2115436; old CIK 34088) got new CIKs. Fundamentals before that sit under the old CIK and aren't fetched. XOM is the worst case, with only filings since Aug 2026. The fix, if needed, is a small hand-made `predecessor_ciks.csv`.
 
 - **Fresh builds only know the corrected price.** A price corrected before the first build gives factors only the corrected value (known from the correction date). Live append-only runs record both.
-- **Annual EPS, not trailing-12-month.** P/E still uses the latest 10-K's diluted EPS. `mart_eps_quarterly` is built for TTM but not wired into P/E yet.
+- **P/E v2 uses TTM EPS.** v1 (latest 10-K) can be up to 15 months stale. v1 rows stay and keep being computed for anyone who pinned it.
 - **Quarterly EPS (`mart_eps_quarterly`).** A quarter is keyed by `period_end`; `fiscal_year`/`fiscal_period` describe the filing, not the number, so they're ignored.
   - Each 10-Q also repeats last year's quarter for comparison. The same value (up to cent rounding, after splits) is not a new version. A different value is a restatement and gets a row, known from that filing date (e.g. JPM Q1 2012, London Whale, 1.31 → 1.19 by 10-Q/A; MSFT and BA 2017 after the new revenue rules).
   - Q4 is often not filed on its own, so Q4 = full year − 9 months, only from that year's own 10-K and only if Q4 wasn't filed. A 10-K/A or a later comparison column can restate the year while the 9-month value is still old (AAPL's Jan 2010 10-K/A gave a bogus 4.61).
@@ -129,4 +130,4 @@ Questions where naive data gives the wrong answer:
 - **Dividends:** price return vs total return.
 
 ## Open
-MCP client, demo questions, TTM EPS.
+MCP client, demo questions.

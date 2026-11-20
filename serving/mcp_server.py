@@ -85,7 +85,8 @@ def get_factors(
     """Factor values (long: one row per ticker, day, factor) as known on as_of.
     computed_by (timestamp) also hides rows our pipeline produced after it.
     Factors: ret_1d, ret_21d, ret_63d, ret_252d, mom_12_1, vol_21d, vol_63d, beta_252d, drawdown_252d,
-    avg_dollar_volume_21d, eps_fy, pe_ratio, earnings_yield, shares_outstanding, market_cap."""
+    avg_dollar_volume_21d, eps_fy, eps_ttm, pe_ratio, earnings_yield, shares_outstanding, market_cap.
+    pe_ratio and earnings_yield: version 1 uses the last fiscal year's EPS, version 2 the last 4 quarters (TTM)."""
     return query(
         """
         SELECT sec.ticker, fct.about_date, fct.factor, fct.factor_version, fct.value, fct.known_as_of, CAST(fct.computed_at AS VARCHAR) AS computed_at

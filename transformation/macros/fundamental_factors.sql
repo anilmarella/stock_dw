@@ -1,6 +1,7 @@
 {#
     Fundamental factors, one row per (security, day, knowledge date) where the value changed.
     For day d as known at date K: latest fiscal year ended before d, from filings made by K.
+    eps_ttm: sum of the latest 4 quarters ended before d, each at its latest version filed by K.
     Knowledge dates for d are d itself plus every filing in the 3 years after d
     (a late 10-K or a restated comparative can change what we know about d).
     EPS and share counts are stored on a split-free basis, then put on day d's basis.
@@ -25,6 +26,15 @@ eps AS (
     FROM {{ ref('mart_eps_annual') }}
 ),
 
+eps_q AS (
+    SELECT
+        security_key,
+        period_end,
+        filed_date,
+        eps * split_index_at_filed AS eps_base
+    FROM {{ ref('mart_eps_quarterly') }}
+),
+
 shares AS (
     SELECT
         fnd.security_key,
@@ -45,6 +55,11 @@ events AS (
         security_key,
         filed_date AS event_date
     FROM eps
+    UNION
+    SELECT
+        security_key,
+        filed_date AS event_date
+    FROM eps_q
     UNION
     SELECT
         security_key,
@@ -93,6 +108,47 @@ eps_value AS (
     ) = 1
 ),
 
+-- Latest version of each recent quarter, as known at K.
+ttm_quarters AS (
+    SELECT
+        kno.security_key,
+        kno.about_date,
+        kno.known_as_of,
+        epq.period_end,
+        epq.eps_base
+    FROM knowledge AS kno
+    INNER JOIN eps_q AS epq
+        ON
+            kno.security_key = epq.security_key
+            AND epq.period_end < kno.about_date
+            AND epq.period_end >= kno.about_date - INTERVAL 2 YEAR
+            AND epq.filed_date <= kno.known_as_of
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY kno.security_key, kno.about_date, kno.known_as_of, epq.period_end
+        ORDER BY epq.filed_date DESC
+    ) = 1
+),
+
+-- Sum of the latest 4 quarters, only when they are consecutive (cover about a year).
+ttm_value AS (
+    SELECT
+        security_key,
+        about_date,
+        known_as_of,
+        SUM(eps_base) AS eps_ttm_base
+    FROM (
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY security_key, about_date, known_as_of ORDER BY period_end DESC
+            ) AS quarter_rank
+        FROM ttm_quarters
+    )
+    WHERE quarter_rank <= 4
+    GROUP BY security_key, about_date, known_as_of
+    HAVING COUNT(*) = 4 AND DATE_DIFF('day', MIN(period_end), MAX(period_end)) BETWEEN 250 AND 300
+),
+
 shares_value AS (
     SELECT
         kno.security_key,
@@ -118,6 +174,7 @@ wide AS (
         kno.known_as_of,
         days.close,
         epv.eps_base / days.split_index AS eps_fy,
+        ttm.eps_ttm_base / days.split_index AS eps_ttm,
         shv.shares_base * days.split_index AS shares_outstanding
     FROM knowledge AS kno
     INNER JOIN days ON kno.security_key = days.security_key AND kno.about_date = days.about_date
@@ -126,6 +183,11 @@ wide AS (
             kno.security_key = epv.security_key
             AND kno.about_date = epv.about_date
             AND kno.known_as_of = epv.known_as_of
+    LEFT JOIN ttm_value AS ttm
+        ON
+            kno.security_key = ttm.security_key
+            AND kno.about_date = ttm.about_date
+            AND kno.known_as_of = ttm.known_as_of
     LEFT JOIN shares_value AS shv
         ON
             kno.security_key = shv.security_key
@@ -146,6 +208,9 @@ long AS (
             ('eps_fy', 1, wide.eps_fy),
             ('pe_ratio', 1, CASE WHEN wide.eps_fy > 0 THEN wide.close / wide.eps_fy END),
             ('earnings_yield', 1, wide.eps_fy / wide.close),
+            ('eps_ttm', 1, wide.eps_ttm),
+            ('pe_ratio', 2, CASE WHEN wide.eps_ttm > 0 THEN wide.close / wide.eps_ttm END),
+            ('earnings_yield', 2, wide.eps_ttm / wide.close),
             ('shares_outstanding', 1, wide.shares_outstanding),
             ('market_cap', 1, wide.close * wide.shares_outstanding)
         ) AS fct (factor, factor_version, value)

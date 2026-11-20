@@ -7,7 +7,10 @@
     post_hook="{{ create_factor_table_macros(this) }}"
 ) }}
 
-{% if is_incremental() %}
+{# Backfill a new factor or version: --vars '{factor_since: "1900-01-01"}'. Unchanged rows aren't re-appended. #}
+{% if is_incremental() and var('factor_since', none) %}
+    {% set since = "DATE '" ~ var('factor_since') ~ "'" %}
+{% elif is_incremental() %}
     {% set since = "(SELECT MAX(known_as_of) - INTERVAL 10 DAY FROM " ~ this ~ ")" %}
 {% else %}
     {% set since = "DATE '1900-01-01'" %}

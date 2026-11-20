@@ -4,8 +4,8 @@ WITH wide AS (
     {{ factors_wide([
         'ret_1d', 'ret_21d', 'ret_63d', 'ret_252d', 'mom_12_1',
         'vol_21d', 'vol_63d', 'beta_252d', 'drawdown_252d', 'avg_dollar_volume_21d',
-        'eps_fy', 'pe_ratio', 'earnings_yield', 'shares_outstanding', 'market_cap'
-    ]) }}
+        'eps_fy', 'eps_ttm', 'pe_ratio', 'earnings_yield', 'shares_outstanding', 'market_cap'
+    ], versions={'pe_ratio': 2, 'earnings_yield': 2}) }}
 )
 
 SELECT
