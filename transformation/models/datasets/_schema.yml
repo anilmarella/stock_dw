@@ -63,6 +63,8 @@ models:
       - name: period_end
         description: Quarter end. Identifies the quarter.
         data_tests: [not_null]
+      - name: calendar_quarter
+        description: Calendar quarter, e.g. 2024-Q3, from the middle of the period. Not the company's fiscal quarter.
       - name: eps
         description: As filed (or derived), on the share basis at the filing date.
       - name: is_derived
