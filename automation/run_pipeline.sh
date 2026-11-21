@@ -9,4 +9,4 @@ uv run python ingestion/ingest.py
 
 echo "==> dbt build (target: $TARGET)"
 cd transformation
-uv run dbt build --select staging foundation marts --target "$TARGET" --threads 4
+uv run dbt build --select staging intermediate datasets features --target "$TARGET" --threads 4

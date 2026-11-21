@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: ds_security
+    description: One row per security (company), keyed by md5(CIK). Latest ticker.
+    columns:
+      - name: security_key
+        data_tests: [unique, not_null]
+      - name: cik
+      - name: ticker
+      - name: name
+
+  - name: ds_price_daily
+    description: >
+      Unadjusted daily prices, every version, with the split index.
+      As of date A: known_as_of <= A AND (known_until IS NULL OR known_until > A).
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: about_date
+        data_tests: [not_null]
+      - name: open
+      - name: high
+      - name: low
+      - name: close
+      - name: volume
+      - name: dividend_cash
+      - name: split_factor
+      - name: split_index
+        description: All splits up to this day multiplied. Split-adjusted close as seen on A = close * split_index / split_index on A.
+      - name: version_no
+        description: 1 = first seen. Higher = later correction.
+      - name: ingested_at
+      - name: known_as_of
+        description: Trading day for version 1, ingest date for corrections.
+        data_tests: [not_null]
+      - name: known_until
+        description: known_as_of of the next version. Null = still current.
+
+  - name: ds_eps_annual
+    description: Annual diluted EPS from every 10-K, including restated values for earlier years.
+    columns:
+      - name: security_key
+      - name: period_start
+      - name: period_end
+        description: Fiscal year end.
+      - name: eps
+        description: As filed, on the share basis at the filing date.
+      - name: form
+      - name: accession_no
+      - name: filed_date
+      - name: split_index_at_filed
+        description: split_index on the filing date, used to move EPS onto a later share basis.
+
+  - name: ds_eps_quarterly
+    description: >
+      Quarterly diluted EPS, one row per quarter per distinct value (a restatement adds a row).
+      Q4 is derived as full year minus 9 months when the 10-K doesn't file it.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: period_start
+      - name: period_end
+        description: Quarter end. Identifies the quarter.
+        data_tests: [not_null]
+      - name: eps
+        description: As filed (or derived), on the share basis at the filing date.
+      - name: is_derived
+        description: True for Q4 computed as full year minus 9 months.
+      - name: form
+      - name: accession_no
+      - name: filed_date
+        description: When this value became known.
+        data_tests: [not_null]
+      - name: split_index_at_filed
+        description: split_index on the filing date, used to move EPS onto a later share basis.

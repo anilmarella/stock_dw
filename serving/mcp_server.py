@@ -56,6 +56,7 @@ def get_prices(ticker: str, start: str, end: str, as_of: str) -> list[dict]:
             SELECT *
             FROM marts.mart_daily_price
             WHERE ticker = UPPER(?) AND about_date <= CAST(? AS DATE) AND known_as_of <= CAST(? AS DATE)
+                AND (known_until IS NULL OR known_until > CAST(? AS DATE))
         ),
         asof_index AS (
             SELECT split_index FROM px ORDER BY about_date DESC LIMIT 1
@@ -64,12 +65,12 @@ def get_prices(ticker: str, start: str, end: str, as_of: str) -> list[dict]:
             px.about_date, px.open, px.high, px.low, px.close, px.volume,
             px.dividend_cash, px.split_factor,
             px.close * px.split_index / asof_index.split_index AS adj_close,
-            px.total_return, px.known_as_of
+            px.known_as_of
         FROM px, asof_index
         WHERE px.about_date BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
         ORDER BY px.about_date
         """,
-        [ticker, as_of, as_of, start, end],
+        [ticker, as_of, as_of, as_of, start, end],
     )
 
 

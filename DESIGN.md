@@ -28,7 +28,7 @@ Descriptive analytics only. Runs locally. Free data and tools.
 
 ## dbt layers
 - **staging** (views): 1:1 with raw. Renames, casts types, light filters.
-- **foundation** (tables): shared source facts, versioned with `known_as_of` / `known_until` plus `ingested_at`. `fnd_security`, `fnd_price_daily`, `fnd_corporate_action`, `fnd_fundamental`.
+- **foundation** (tables): shared source facts, versioned with `known_as_of` / `known_until` plus `ingested_at`. `fnd_security`, `fnd_price_daily`, `fnd_fundamental`.
 - **marts**: what people and serving read. `mart_security`, `mart_daily_price`, `mart_eps_annual`, `mart_eps_quarterly`, the factor library `mart_factor_value`, and its wide read view `mart_factors_daily`.
 
 ## Adjusted prices
@@ -109,7 +109,7 @@ Never stored. `mart_daily_price.split_index` is the running product of split fac
 - **Survivorship bias:** the list is today's big companies. Showing the bias would need delisted stocks, which free sources don't cover well.
 - **Real price corrections** are rare, so a demo of one would have to be staged.
 - **Multi-class companies:** V has no plain diluted EPS (it reports per class), so no P/E. GOOGL and META have no single cover-page share count, so no market cap. MA's share counts are sparse.
-- **`get_prices` and price corrections:** `mart_daily_price` holds only the latest price version, so for an `as_of` before a correction, that day is missing instead of showing the old value.
+- **Split corrections aren't versioned:** `split_index` uses the current split factors for every price version. No split has been corrected so far.
 - **PFE's Viatris spin-off (2020-11-17)** comes from Tiingo as a 1.054 split. That's right for adjusted prices, but EPS and share counts get moved by it as if shares changed.
 - **Tagging errors in SEC data are kept as filed.** AMZN's 2012 10-K swaps 2011 and 2012 quarterly EPS; the next filing fixes it. A point-in-time view should show what the feed said.
 - **Gaps in quarterly EPS:** TSLA 2012–2016 and GOOGL 2015 (Alphabet change) are missing quarters.

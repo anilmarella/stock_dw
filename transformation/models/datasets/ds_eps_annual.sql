@@ -9,7 +9,7 @@ WITH eps AS (
         form,
         accession_no,
         filed_date
-    FROM {{ ref('fnd_fundamental') }}
+    FROM {{ ref('int_sec_facts') }}
     WHERE
         concept = 'EarningsPerShareDiluted'
         AND unit = 'USD/shares'
@@ -19,7 +19,7 @@ WITH eps AS (
 
 SELECT
     eps.*,
-    COALESCE(prc.split_index, 1) AS split_index_at_filed
+    COALESCE(spl.split_index, 1) AS split_index_at_filed
 FROM eps
-ASOF LEFT JOIN {{ ref('mart_daily_price') }} AS prc
-    ON eps.security_key = prc.security_key AND eps.filed_date >= prc.about_date
+ASOF LEFT JOIN {{ ref('int_splits') }} AS spl
+    ON eps.security_key = spl.security_key AND eps.filed_date >= spl.about_date

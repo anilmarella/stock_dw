@@ -11,11 +11,11 @@ WITH facts AS (
         fnd.form,
         fnd.accession_no,
         fnd.filed_date,
-        COALESCE(prc.split_index, 1) AS split_index_at_filed,
-        fnd.fact_value * COALESCE(prc.split_index, 1) AS eps_base
-    FROM {{ ref('fnd_fundamental') }} AS fnd
-    ASOF LEFT JOIN {{ ref('mart_daily_price') }} AS prc
-        ON fnd.security_key = prc.security_key AND fnd.filed_date >= prc.about_date
+        COALESCE(spl.split_index, 1) AS split_index_at_filed,
+        fnd.fact_value * COALESCE(spl.split_index, 1) AS eps_base
+    FROM {{ ref('int_sec_facts') }} AS fnd
+    ASOF LEFT JOIN {{ ref('int_splits') }} AS spl
+        ON fnd.security_key = spl.security_key AND fnd.filed_date >= spl.about_date
     WHERE fnd.concept = 'EarningsPerShareDiluted' AND fnd.unit = 'USD/shares'
 ),
 
@@ -29,6 +29,12 @@ nine_month AS (
     SELECT *
     FROM facts
     WHERE period_days BETWEEN 250 AND 290
+),
+
+full_year AS (
+    SELECT *
+    FROM facts
+    WHERE period_days BETWEEN 340 AND 380 AND form = '10-K'
 ),
 
 -- Each 10-K's full-year value minus the latest 9-month value filed by then.
@@ -45,9 +51,9 @@ derived_q4 AS (
         ann.accession_no,
         ann.filed_date,
         ann.split_index_at_filed,
-        ann.eps * ann.split_index_at_filed - ytd.eps_base AS eps_base,
+        ann.eps_base - ytd.eps_base AS eps_base,
         TRUE AS is_derived
-    FROM {{ ref('mart_eps_annual') }} AS ann
+    FROM full_year AS ann
     INNER JOIN nine_month AS ytd
         ON
             ann.security_key = ytd.security_key
@@ -55,8 +61,7 @@ derived_q4 AS (
             AND ytd.period_end < ann.period_end
             AND ytd.filed_date <= ann.filed_date
     WHERE
-        ann.form = '10-K'
-        AND ann.filed_date < ann.period_end + INTERVAL 6 MONTH
+        ann.filed_date < ann.period_end + INTERVAL 6 MONTH
         AND NOT EXISTS (
             SELECT 1
             FROM reported AS rep

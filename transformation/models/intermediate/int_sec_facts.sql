@@ -1,4 +1,6 @@
--- One row per fact per filing. Repeats from daily SEC pulls collapse to the first one ingested.
+-- Every SEC XBRL fact from 10-K and 10-Q filings (and amendments), one row per fact per filing.
+-- Building block: datasets like ds_eps pull one concept out of it and format it.
+-- Repeats from daily SEC pulls collapse to the first one ingested.
 SELECT
     {{ security_key('cik') }} AS security_key,
     cik,

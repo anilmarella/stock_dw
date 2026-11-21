@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: feature_registry
+    description: >
+      Every feature: name, category, description, SQL formula, history needed.
+      Its post_hook creates the feature functions, e.g.
+      SELECT * FROM features.price_features(DATE '2026-01-01', tickers := ['NVDA'], start_date := DATE '2016-01-01').
+    columns:
+      - name: feature
+        data_tests: [unique, not_null]
+      - name: category
+      - name: description
+      - name: formula_sql
+      - name: lookback_days
+        description: Calendar days of history needed before the first output day.

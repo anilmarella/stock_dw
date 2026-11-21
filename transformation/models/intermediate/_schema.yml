@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: int_ticker_map
+    description: Every ticker and company (CIK) pair seen in SEC's ticker list.
+    columns:
+      - name: ticker
+        data_tests: [not_null]
+      - name: cik
+        data_tests: [not_null]
+      - name: security_key
+      - name: name
+        description: Latest name seen.
+      - name: first_seen_at
+      - name: last_seen_at
+
+  - name: int_splits
+    description: One row per split, with the running split index.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: ticker
+      - name: about_date
+        description: Ex-date.
+      - name: split_factor
+        description: 2 = 2-for-1.
+      - name: split_index
+        description: All splits up to and including this one multiplied.
+
+  - name: int_sec_facts
+    description: SEC XBRL facts from 10-K and 10-Q filings, one row per fact per filing. All concepts.
+    columns:
+      - name: security_key
+        data_tests: [not_null]
+      - name: cik
+      - name: taxonomy
+      - name: concept
+      - name: unit
+      - name: period_start
+      - name: period_end
+      - name: about_date
+      - name: fact_value
+      - name: accession_no
+      - name: fiscal_year
+        description: Fiscal year of the filing, not of the fact.
+      - name: fiscal_period
+        description: Fiscal period of the filing, not of the fact.
+      - name: form
+      - name: filed_date
+      - name: known_as_of
+        description: Filing date. When the fact became public.
+        data_tests: [not_null]
+      - name: frame
+      - name: ingested_at

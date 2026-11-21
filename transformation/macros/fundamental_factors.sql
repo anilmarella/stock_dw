@@ -14,7 +14,7 @@ WITH days AS (
         close,
         split_index
     FROM {{ ref('mart_daily_price') }}
-    WHERE about_date >= {{ since }} - INTERVAL 3 YEAR
+    WHERE about_date >= {{ since }} - INTERVAL 3 YEAR AND known_until IS NULL
 ),
 
 eps AS (
